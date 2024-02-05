@@ -1,0 +1,243 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "rootName": {
+            "type": "string",
+            "metadata": {
+                "description": "The root name for all resources. The combination of rootName and location must be globally unique"
+            }
+        },
+        "location": {
+            "type": "string",
+            "metadata": {
+                "description": "The location of the azure region. The combination of rootName and location must be globally unique"
+            }
+        },
+        "vmSize": {
+            "type": "string",
+            "defaultValue": "Standard_D2_v3",
+            "allowedValues": [
+                "Standard_B2ms",
+                "Standard_B4ms",
+                "Standard_D4_v5",
+                "Standard_D8_v5	"
+            ],
+            "metadata": {
+                "description": "Set this value for the VM size"
+            }
+        },
+        "adminUsername": {
+            "type": "string"
+        },
+        "adminPassword": {
+            "type": "secureString"
+        },
+        "_artifactsLocation": {
+            "type": "string",
+            "metadata": {
+                "description": "The base URI where artifacts required by this template are located including a trailing '/'"
+            },
+        "defaultValue": "[deployment().properties.templateLink.uri]"
+        },
+        "_artifactsLocationSasToken": {
+            "type": "securestring",
+            "metadata": {
+                "description": "The sasToken required to access _artifactsLocation.  When the template is deployed using the accompanying scripts, a sasToken will be automatically generated. Use the defaultValue if the staging location is not secured."
+            },
+            "defaultValue": ""
+        }    
+    },
+    "variables": {
+        "vnetName": "[concat(parameters('rootName'), '-vnet')]",
+        "vnetIpPrefix": "10.1.0.0/16",
+        "nsgName": "[concat(parameters('rootName'), '-nsg')]",
+        "vmSubnetName": "[concat(parameters('rootName'), '-subnet')]",
+        "vmSubnetIpPrefix": "10.1.2.0/24",
+        "storageName": "[concat('vmbootdiag', take(uniqueString(subscription().id), 6))]",
+        "publicIpName": "[concat(parameters('rootName'), '-ip')]",        
+        "vmName": "[concat(parameters('rootName'), '-vm')]",
+        "nicName": "[concat(parameters('rootName'), '-nic')]",
+        "customScriptFilePath": "[uri(parameters('_artifactsLocation'), concat('install.ps1', parameters('_artifactsLocationSasToken')))]"
+    },
+    "resources": [
+        {
+            "apiVersion": "2020-05-01",
+            "name": "[variables('vnetName')]",
+            "type": "Microsoft.Network/virtualNetworks",
+            "location": "[parameters('location')]",
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[variables('vnetIpPrefix')]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[variables('vmSubnetName')]",
+                        "properties": {
+                            "addressPrefix": "[variables('vmSubnetIpPrefix')]"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "[variables('storageName')]",
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2019-06-01",
+            "location": "[parameters('location')]",
+            "tags": {
+                "displayName": "[concat(resourceGroup().name, ' Storage Account')]"
+            },
+            "sku": {
+                "name": "Standard_LRS"
+            },
+            "kind": "Storage"
+        },
+        {
+            "name": "[variables('nsgName')]",
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2018-08-01",
+            "location": "[parameters('location')]",
+            "properties": {
+                "securityRules": [{
+                    "name": "Allow_Http_Inbound",
+                    "properties": {
+                        "protocol": "TCP",
+                        "sourcePortRange": "*",
+                        "destinationPortRange": "80 443",
+                        "sourceAddressPrefix": "*",
+                        "destinationAddressPrefix": "*",
+                        "access": "Allow",
+                        "priority": 100,
+                        "direction": "Inbound",
+                        "sourcePortRanges": [],
+                        "destinationPortRanges": [],
+                        "sourceAddressPrefixes": [],
+                        "destinationAddressPrefixes": []
+                    }
+                }]   
+            }                             
+        },
+        {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2020-06-01",
+            "name": "[variables('publicIpName')]",
+            "location": "[parameters('location')]",
+            "sku": {
+                "name": "Standard"
+            },
+            "properties": {
+                "publicIPAddressVersion": "IPv4",
+                "publicIPAllocationMethod": "Static",
+                "dnsSettings": {
+                    "domainNameLabel": "[parameters('rootName')]"
+                }
+            }
+        },
+        {
+            "name": "[variables('nicName')]",
+            "type": "Microsoft.Network/networkInterfaces",
+            "apiVersion": "2019-11-01",
+            "location": "[parameters('location')]", 
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
+            ],           
+            "tags": {
+                "displayName": "[concat(variables('vmName'), ' Network Interface')]"
+            },
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipConfig1",
+                        "properties": {
+                            "publicIPAddress": {
+                                "id":"[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]"
+                            },                          
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('vmSubnetName'))]"
+                            }
+                        }
+                    }
+                ],
+                "networkSecurityGroup": {
+                    "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+                }
+            }
+        },
+        {
+            "name": "[variables('vmName')]",
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2019-07-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+            ],
+            "tags": {
+                "displayName": "[variables('vmName')]"
+            },
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "[parameters('vmSize')]"
+                },
+                "osProfile": {
+                    "computerName": "[parameters('rootName')]",
+                    "adminUsername": "[parameters('adminUsername')]",
+                    "adminPassword": "[parameters('adminPassword')]"                      
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "MicrosoftWindowsServer",
+                        "offer": "WindowsServer",
+                        "sku": "2022-datacenter-g2",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "name": "[concat(variables('vmName'),'-disk')]",
+                        "caching": "ReadWrite",
+                        "createOption": "FromImage"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "apiVersion": "2015-06-15",
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "name": "[concat(variables('vmName') ,'/script')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]"
+            ],
+            "tags": {
+                "displayName": "Installation Script"
+            },
+            "properties": {
+                "publisher": "Microsoft.Compute",
+                "type": "CustomScriptExtension",
+                "typeHandlerVersion": "1.9",
+                "autoUpgradeMinorVersion": true,
+                "settings": {
+                    "fileUris": "[variables('customScriptFilePath')]"
+                },
+                "protectedSettings": {
+                    "commandToExecute": "[concat('powershell -ExecutionPolicy Unrestricted -File install.ps1 -Fqdn ', reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))).dnsSettings.fqdn)]"
+                }
+            }
+        }        
+    ],
+    "outputs": {
+        "fqdn": {
+            "type": "string",
+            "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))).dnsSettings.fqdn]"
+        }
+    }    
+}
