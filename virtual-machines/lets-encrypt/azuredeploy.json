@@ -227,7 +227,7 @@
                 "typeHandlerVersion": "1.9",
                 "autoUpgradeMinorVersion": true,
                 "settings": {
-                    "fileUris": "[variables('customScriptFilePath')]"
+                    "fileUris": ["[variables('customScriptFilePath')]"]
                 },
                 "protectedSettings": {
                     "commandToExecute": "[concat('powershell -ExecutionPolicy Unrestricted -File install.ps1 -Fqdn ', reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))).dnsSettings.fqdn)]"
