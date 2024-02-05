@@ -34,6 +34,13 @@
         "adminPassword": {
             "type": "secureString"
         },
+        "certEmail": {
+            "type": "string",
+            "defaultValue": "not.a.real.person@outlook.com",
+            "metadata": {
+                "description": "The email address to be associated with the Let's Encrypt certificate"
+            }
+        },
         "_artifactsLocation": {
             "type": "string",
             "metadata": {
@@ -216,7 +223,7 @@
                     "fileUris": ["[variables('customScriptFilePath')]"]
                 },
                 "protectedSettings": {
-                    "commandToExecute": "[concat('powershell -ExecutionPolicy Unrestricted -File install.ps1 -Fqdn ', reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))).dnsSettings.fqdn)]"
+                    "commandToExecute": "[concat('powershell -ExecutionPolicy Unrestricted -File install.ps1 -Fqdn ', reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))).dnsSettings.fqdn, ' -email ', parameters('certEmail'))]"
                 }
             }
         }        

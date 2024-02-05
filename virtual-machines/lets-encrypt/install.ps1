@@ -1,4 +1,7 @@
-param ([string]$fqdn)
+param (
+    [string]$fqdn,
+    [string]$email
+    )
 
 Install-WindowsFeature -name Web-Server -IncludeManagementTools
 New-WebBinding -Name 'Default Web Site' -IPAddress '*' -Port 80 -HostHeader $fqdn
@@ -8,7 +11,7 @@ New-WebBinding -Name 'Default Web Site' -IPAddress '*' -Port 443 -HostHeader $fq
 Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 choco install win-acme -y
 
-Start-Process C:\tools\win-acme\wacs.exe -ArgumentList "--source iis --siteid s --accepttos --emailaddress not.a.real.person@outlook.com" -Wait
+Start-Process C:\tools\win-acme\wacs.exe -ArgumentList "--source iis --siteid s --accepttos --emailaddress $email" -Wait
 $binding = Get-WebBinding -Name 'Default Web Site' -Protocol https
 $cert = Get-ChildItem cert:\LocalMachine\WebHosting | Select-Object -First 1
 $binding.AddSslCertificate($cert.Thumbprint, 'WebHosting')
