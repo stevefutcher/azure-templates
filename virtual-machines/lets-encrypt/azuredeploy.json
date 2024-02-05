@@ -55,7 +55,6 @@
         "nsgName": "[concat(parameters('rootName'), '-nsg')]",
         "vmSubnetName": "[concat(parameters('rootName'), '-subnet')]",
         "vmSubnetIpPrefix": "10.1.2.0/24",
-        "storageName": "[concat('vmbootdiag', take(uniqueString(parameters('rootName')), 6))]",
         "publicIpName": "[concat(parameters('rootName'), '-ip')]",        
         "vmName": "[concat(parameters('rootName'), '-vm')]",
         "nicName": "[concat(parameters('rootName'), '-nic')]",
@@ -82,19 +81,6 @@
                     }
                 ]
             }
-        },
-        {
-            "name": "[variables('storageName')]",
-            "type": "Microsoft.Storage/storageAccounts",
-            "apiVersion": "2019-06-01",
-            "location": "[parameters('location')]",
-            "tags": {
-                "displayName": "[concat(resourceGroup().name, ' Storage Account')]"
-            },
-            "sku": {
-                "name": "Standard_LRS"
-            },
-            "kind": "Storage"
         },
         {
             "name": "[variables('nsgName')]",
