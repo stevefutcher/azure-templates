@@ -55,7 +55,7 @@
         "nsgName": "[concat(parameters('rootName'), '-nsg')]",
         "vmSubnetName": "[concat(parameters('rootName'), '-subnet')]",
         "vmSubnetIpPrefix": "10.1.2.0/24",
-        "storageName": "[concat('vmbootdiag', take(uniqueString(subscription().id), 6))]",
+        "storageName": "[concat('vmbootdiag', take(uniqueString(parameters('rootName')), 6))]",
         "publicIpName": "[concat(parameters('rootName'), '-ip')]",        
         "vmName": "[concat(parameters('rootName'), '-vm')]",
         "nicName": "[concat(parameters('rootName'), '-nic')]",
